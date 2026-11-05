@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Agent Traffic Monitor</title>
+  <link rel="stylesheet" href="/_monitor/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <p class="eyebrow">LOCAL OBSERVABILITY</p>
+      <h1>Agent Traffic Monitor</h1>
+      <p class="notice">Local session only — captured content may be sensitive.</p>
+    </div>
+    <div class="header-actions">
+      <span id="connection" class="status waiting"><span class="status-dot"></span>Connecting</span>
+      <span id="count" class="count">0 / 0 events</span>
+      <button id="clear-events" class="button danger" type="button">Clear events</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="filters" aria-label="Event filters">
+      <label>
+        <span>Event type</span>
+        <select id="type-filter">
+          <option value="all">All events</option>
+          <option value="model_request">Model requests</option>
+          <option value="model_response">Model responses</option>
+          <option value="tool_call">Tool calls</option>
+          <option value="tool_result">Tool results</option>
+          <option value="error">Errors</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </label>
+      <label class="search-label">
+        <span>Search captured content</span>
+        <input id="search" type="search" placeholder="Prompt, tool, request ID…" autocomplete="off">
+      </label>
+      <button id="clear-filters" class="button subtle" type="button">Clear filters</button>
+    </section>
+
+    <div id="load-error" class="error-banner" role="alert" hidden>
+      <span id="load-error-text">Could not load captured traffic.</span>
+      <button id="retry" class="button subtle" type="button">Retry</button>
+    </div>
+
+    <section aria-label="Captured events">
+      <div id="timeline" class="timeline"></div>
+      <div id="empty" class="empty-state">
+        <div class="empty-icon" aria-hidden="true">↗</div>
+        <h2>No traffic captured yet.</h2>
+        <p>Send a request through the proxy.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/_monitor/app.js" defer></script>
+</body>
+</html>

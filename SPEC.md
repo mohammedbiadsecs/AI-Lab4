@@ -16,8 +16,11 @@ Before implementation, inspect the supplied proxy code and run it to determine:
 - which HTTP routes or other integration points already exist; and
 - whether the proxy supports streaming, polling, or neither.
 
-This workspace currently contains no proxy implementation to verify, so this specification does not mandate route names, a framework, or Server-Sent Events (SSE).
-Use the proxy's existing interface where practical, add only the smallest monitoring adapter, and do not replace, delay, mutate, replay, or cancel normal traffic.
+The inspected proxy is a standard-library `ThreadingHTTPServer` reverse proxy. Its existing GET, POST, and HEAD traffic is forwarded to the configured upstream, including the upstream base path, and response bytes and status codes are passed back to the client. Model responses may be JSON or streamed `text/event-stream` data. Tool calls and results are embedded in those provider payloads rather than exposed through a separate proxy hook.
+
+The local monitor uses the reserved `/_monitor/` namespace. A path such as `/live` is not a monitor route: it is forwarded to the configured upstream. A 404 on such a path must be diagnosed using the effective upstream configuration and path, not masked by inventing a local route. The proxy defaults to the Anthropic API unless `--upstream` is supplied.
+
+Use the proxy's existing interface where practical, add only the smallest monitoring adapter, and do not replace, delay, mutate, replay, cancel, or synthesize success for normal traffic.
 Document the chosen integration point and live-update mechanism in the completed lab README.
 
 ## 3. Must-have scope
@@ -27,6 +30,7 @@ Document the chosen integration point and live-update mechanism in the completed
 - Initial display of already buffered items and automatic display of new items.
 - Visibility into system prompts, conversation history, model requests and responses, tool definitions, tool calls, and tool results when present in captured traffic.
 - A chronological list with concise summaries and expandable, readable JSON.
+- Tool calls and their results are visually associated when their captured call IDs match.
 - Event-type filtering, text search, connection/error states, and a clear-events action.
 - Basic credential redaction and safe rendering of all captured content.
 
@@ -77,9 +81,10 @@ Choose the simplest mechanism supported by the inspected proxy:
 3. Add a minimal local stream only if it fits the proxy's stack; SSE is optional, not assumed.
 
 The dashboard must load the current buffer before or while starting live updates.
-Items must appear oldest first and must not be duplicated across initial load and later updates.
+Items must appear newest first and must not be duplicated across initial load and later updates.
 The UI must show `Live`, `Polling`, or `Disconnected`, as applicable to the chosen mechanism.
 A failed update must not remove traffic already displayed.
+After a later poll succeeds, the connection state and error banner must recover to `Polling`; a stale failure from an older overlapping attempt must not overwrite that successful state.
 The buffer must have a reasonable fixed limit; when full, discard the oldest items.
 
 Any added monitor routes must follow the starter proxy's conventions.
@@ -94,6 +99,7 @@ Type and text filters combine with AND logic and affect only the displayed list.
 Search must cover summaries and serialized content, including prompts, tool names, and request IDs.
 
 Each collapsed item shows its type, local timestamp, summary, and available model or correlation information.
+When a tool call and tool result share a call ID, both items show a visible paired indicator using that ID.
 Missing optional values are omitted rather than rendered as `null` or `undefined`.
 Selecting an item expands or collapses it.
 
@@ -107,11 +113,13 @@ Expanded details must:
 The page must remain usable at laptop width and approximately 375 px width.
 An empty buffer shows: `No traffic captured yet. Send a request through the proxy.`
 Clearing requires a lightweight confirmation, clears both server memory and the page, and does not stop future capture.
+Browser-generated asset requests, including `/favicon.ico` and requests identified by browser asset destinations, may still be proxied normally but must not be classified or displayed as model traffic.
 
 ## 8. Essential error handling
 
 - Initial-load failure: show a concise error and a retry control.
 - Live-update failure: retain existing items, show `Disconnected`, and retry or allow retry.
+- Successful recovery: hide the prior polling error and show `Polling`; ignore stale results from older overlapping poll attempts.
 - Invalid item or timestamp: show a fallback item and preserve inspectable source data.
 - Unknown type: use neutral styling and allow normal expansion and search.
 - Per-item rendering failure: isolate it so the rest of the timeline still works.
@@ -131,12 +139,15 @@ Clearing requires a lightweight confirmation, clears both server memory and the 
 The must-have implementation is complete when these checks pass with fixtures shaped like the actual proxy traffic:
 
 - [ ] The README identifies the inspected proxy integration point, actual payload shape, and selected update mechanism; it does not claim unsupported SSE or routes.
-- [ ] Three buffered items appear once, oldest first, when the dashboard opens.
+- [ ] Three buffered items appear once, newest first, when the dashboard opens.
 - [ ] A newly captured request or response appears without a page refresh within one update interval.
 - [ ] Re-reading the same buffered item does not create a duplicate.
 - [ ] If live updates fail, existing items remain visible, the state becomes `Disconnected`, and retry is possible.
+- [ ] After a successful retry or later poll, the error clears and a stale earlier failure cannot restore it.
 - [ ] A request fixture exposes its system prompt, ordered conversation history, model request data, and complete tool definitions.
 - [ ] Response, tool-call, and tool-result fixtures expose their content, arguments/results, IDs, and error/status data when provided.
+- [ ] A tool call and result with the same call ID show a visible paired association.
+- [ ] Browser asset requests such as `GET /favicon.ico` do not create model events, while their normal proxy response remains unchanged.
 - [ ] Every item expands to readable raw JSON or escaped text, including fields not specially formatted by the UI.
 - [ ] Long or nested data remains readable without horizontal page overflow.
 - [ ] Type filtering and case-insensitive search work independently and together without deleting buffered data.
